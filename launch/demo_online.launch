@@ -7,6 +7,9 @@
     <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find std_detector)/rviz_cfg/online.rviz" />
   </group>
 
+  <remap from="/Odometry" to="/lio/odom"/>
+  <remap from="/cloud_registered_body" to="/lio/cloud_undistorted_imu"/>
+
   <node
 		pkg="std_detector"
 		type="online_demo"

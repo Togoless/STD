@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(std_detector)
 
-## Compile as C++14
+## Ceres 2.2 requires C++17.
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_BUILD_TYPE "Release")
 
 message("Current CPU archtecture: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -43,7 +43,10 @@ find_package(OpenMP QUIET)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
 find_package(PCL REQUIRED)
+set(Ceres_DIR "/opt/ceres-2.2/lib/cmake/Ceres" CACHE PATH
+    "Ceres package directory" FORCE)
 find_package(Ceres REQUIRED)
+message(STATUS "Using Ceres ${Ceres_VERSION} from ${Ceres_DIR}")
 find_package(GTSAM REQUIRED QUIET)
 
 set(CMAKE_AUTOMOC ON)

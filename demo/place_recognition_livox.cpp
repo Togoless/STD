@@ -5,16 +5,28 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 
-int findPoseIndexUsingTime(std::vector<double> &time_list, double &time) {
+/**
+ * @brief
+ * 根据时间戳在 poses_vec 中找到对应的位姿索引
+ *
+ * @param time_list
+ * @param time
+ * @return
+ */
+int findPoseIndexUsingTime(std::vector<double> &time_list, double &time)
+{
   double time_inc = 10000000000;
   int min_index = -1;
-  for (size_t i = 0; i < time_list.size(); i++) {
-    if (fabs(time_list[i] - time) < time_inc) {
+  for (size_t i = 0; i < time_list.size(); i++)
+  {
+    if (fabs(time_list[i] - time) < time_inc)
+    {
       time_inc = fabs(time_list[i] - time);
       min_index = i;
     }
   }
-  if (time_inc > 0.5) {
+  if (time_inc > 0.5)
+  {
     std::string msg = "The timestamp between poses and point cloud is:" +
                       std::to_string(time_inc) + "s. Please check it!";
     ROS_ERROR_STREAM(msg.c_str());
@@ -25,7 +37,8 @@ int findPoseIndexUsingTime(std::vector<double> &time_list, double &time) {
   return min_index;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
   ros::init(argc, argv, "demo_kitti");
   ros::NodeHandle nh;
   std::string bag_path = "";
@@ -69,27 +82,35 @@ int main(int argc, char **argv) {
   std::vector<double> update_time;
   int triggle_loop_num = 0;
 
+  // 读bag文件
   std::fstream file_;
   file_.open(bag_path, std::ios::in);
-  if (!file_) {
+  if (!file_)
+  {
     std::cout << "File " << bag_path << " does not exit" << std::endl;
   }
   ROS_INFO("Start to load the rosbag %s", bag_path.c_str());
   rosbag::Bag bag;
-  try {
+  try
+  {
     bag.open(bag_path, rosbag::bagmode::Read);
-  } catch (rosbag::BagException e) {
+  }
+  catch (rosbag::BagException e)
+  {
     ROS_ERROR_STREAM("LOADING BAG FAILED: " << e.what());
   }
   std::vector<std::string> types;
   types.push_back(std::string("sensor_msgs/PointCloud2"));
   rosbag::View view(bag, rosbag::TypeQuery(types));
 
-  while (ros::ok()) {
-    BOOST_FOREACH (rosbag::MessageInstance const m, view) {
+  while (ros::ok())
+  {
+    BOOST_FOREACH (rosbag::MessageInstance const m, view)
+    {
       sensor_msgs::PointCloud2::ConstPtr cloud_ptr =
           m.instantiate<sensor_msgs::PointCloud2>();
-      if (cloud_ptr != NULL) {
+      if (cloud_ptr != NULL)
+      {
         double laser_time = cloud_ptr->header.stamp.toSec();
         pcl::PCLPointCloud2 pcl_pc;
         pcl_conversions::toPCL(*cloud_ptr, pcl_pc);
@@ -98,23 +119,29 @@ int main(int argc, char **argv) {
         int pose_index = findPoseIndexUsingTime(times_vec, laser_time);
         Eigen::Vector3d translation = poses_vec[pose_index].first;
         Eigen::Matrix3d rotation = poses_vec[pose_index].second;
-        for (size_t i = 0; i < cloud.size(); i++) {
+        for (size_t i = 0; i < cloud.size(); i++)
+        {
+          // 点云坐标系为lidar坐标系，位姿为lidar在世界坐标系下的位姿
           Eigen::Vector3d pv = point2vec(cloud.points[i]);
           pv = rotation * pv + translation;
           cloud.points[i] = vec2point(pv);
         }
+        // down sampling
         down_sampling_voxel(cloud, config_setting.ds_size_);
-        for (auto pv : cloud.points) {
+        for (auto pv : cloud.points)
+        {
           temp_cloud->points.push_back(pv);
         }
 
         // check if keyframe
-        if (cloudInd % config_setting.sub_frame_num_ == 0 && cloudInd != 0) {
+        if (cloudInd % config_setting.sub_frame_num_ == 0 && cloudInd != 0)
+        {
           std::cout << "Key Frame id:" << keyCloudInd
                     << ", cloud size: " << temp_cloud->size() << std::endl;
           // step1. Descriptor Extraction
           auto t_descriptor_begin = std::chrono::high_resolution_clock::now();
           std::vector<STDesc> stds_vec;
+          // 创建描述子
           std_manager->GenerateSTDescs(temp_cloud, stds_vec);
           auto t_descriptor_end = std::chrono::high_resolution_clock::now();
           descriptor_time.push_back(
@@ -126,11 +153,13 @@ int main(int argc, char **argv) {
           loop_transform.first << 0, 0, 0;
           loop_transform.second = Eigen::Matrix3d::Identity();
           std::vector<std::pair<STDesc, STDesc>> loop_std_pair;
-          if (keyCloudInd > config_setting.skip_near_num_) {
+          if (keyCloudInd > config_setting.skip_near_num_)
+          {
             std_manager->SearchLoop(stds_vec, search_result, loop_transform,
                                     loop_std_pair);
           }
-          if (search_result.first > 0) {
+          if (search_result.first > 0)
+          {
             std::cout << "[Loop Detection] triggle loop: " << keyCloudInd
                       << "--" << search_result.first
                       << ", score:" << search_result.second << std::endl;
@@ -167,7 +196,8 @@ int main(int argc, char **argv) {
           pub_cloud.header.frame_id = "camera_init";
           pubCurrentCorner.publish(pub_cloud);
 
-          if (search_result.first > 0) {
+          if (search_result.first > 0)
+          {
             triggle_loop_num++;
             pcl::toROSMsg(*std_manager->key_cloud_vec_[search_result.first],
                           pub_cloud);
